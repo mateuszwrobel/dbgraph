@@ -1,0 +1,27 @@
+[package]
+name = "dbgraph"
+version = "0.2.0"
+edition = "2024"
+rust-version = "1.99"
+license = "Apache-2.0"
+publish = false
+description = "Database schema graph generator and verifier. Never mutates the database."
+
+[lints.rust]
+unused_imports = "deny"
+
+[lints.clippy]
+all = "deny"
+
+[dependencies]
+async-trait = "0.1"
+clap = { version = "4.4", features = ["derive"] }
+rusqlite = { version = "0.38", features = ["bundled"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "2.0"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+toml = "0.8"
+
+[dev-dependencies]
+rusqlite = { version = "0.38", features = ["bundled"] }

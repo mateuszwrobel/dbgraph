@@ -1,0 +1,89 @@
+# dbgraph architecture spec — verified by `archspec verify --strict` in
+# db-graph/public/dbgraph/run-unit-tests.sh.
+#
+# Shape of the real tree (from `archspec depgraph modules`): the lib unit has
+# eight modules — command (the `generate` and `verify` commands), dialect (the
+# dialect selection choke point), dialect_api (the backend trait and the
+# table-selection scope, a leaf), error (the failure classes, a leaf), help
+# (the built-in manual), model (the canonical schema graph + TOML render +
+# drift comparison), spec (the dbgraph.toml reader and the constraint checks)
+# and sqlite (the SQLite adapter). Every import runs one way down the
+# layering; there are no mutual file edges. The former mutual seams are
+# dissolved through leaf modules:
+#
+#   - model and spec both name error::Error; spec still reads the model
+#     types it validates, but the model names nothing in spec.
+#   - sqlite implements the dialect_api::Dialect trait; dialect::build names
+#     the concrete backend, and nothing imports dialect back.
+#
+# The leaf split keeps every boundary edge one-way, so `no_cycles` at the
+# BOUNDARY level and the file-level tier both stay green without co-locating
+# any mutual pair. The three boundaries, top to bottom:
+#
+#   cli      -> adapters, core    command dispatch + the binary's main
+#   adapters -> core              backend contract + selection + SQLite adapter
+#   core     -> (nothing)         the schema model, spec/constraints, errors
+
+[project]
+language = "rust"
+
+# cli — command dispatch plus the binary entrypoint. The binary unit
+# (`dbgraph-bin`) links the library as a unit-tier edge with no module
+# endpoints, so the unit claim here owns that edge's source; it points at the
+# library facade declared in `core`. The built-in manual (`help`) is pure output
+# with no dependencies, so it lives in this boundary too — the binary's use of
+# it is internal to `cli`.
+# Seam note (decision-check F-3): the `depend_on = ["adapters", ...]` edge
+# below maps the real cross edges `command -> dialect` and
+# `command -> dialect_api` (construction goes through `dialect::build`). Its
+# other half, `command -> sqlite`, has no real
+# edge and archspec cannot declare a per-module allowance inside a boundary
+# (`allowed.depend_on` / `allowed.forbidden` are boundary-level only). The
+# unused half is sealed by the test `command_never_names_the_sqlite_adapter`,
+# which fails the commit if dispatch ever imports the concrete backend.
+[[module]]
+name = "cli"
+matches = { units = ["dbgraph-bin"], modules = ["dbgraph::command", "dbgraph::help"] }
+
+[module.allowed]
+depend_on = ["adapters", "core"]
+
+# adapters — the backend contract (dialect_api: the trait + selection scope,
+# a leaf), the dialect selection choke point (names the concrete backend), and
+# the SQLite adapter. Every edge here points down into core; none comes back.
+[[module]]
+name = "adapters"
+matches = { modules = ["dbgraph::dialect", "dbgraph::dialect_api", "dbgraph::sqlite"] }
+
+[module.allowed]
+depend_on = ["core"]
+
+# core — the schema graph model (with the drift comparison `verify` reports),
+# the spec/constraint layer, and the error leaf, wired together by the library
+# facade (the crate-root module, claimed by the unit fallback). Nothing here
+# imports adapters or cli.
+[[module]]
+name = "core"
+matches = { units = ["dbgraph"], modules = ["dbgraph::model", "dbgraph::spec", "dbgraph::error"] }
+
+[module.allowed]
+depend_on = []
+
+# --- Cycles ---
+# Acyclic at the boundary level and at the file level: cli -> adapters ->
+# core, cli -> core. The former model<->spec and dialect<->sqlite mutual
+# edges are dissolved through the error and dialect_api leaf modules, so no
+# two files reference each other anywhere in the crate.
+[[constraint]]
+type = "no_cycles"
+modules = ["cli", "adapters", "core"]
+severity = "error"
+
+# --- Public API ---
+# The library crate root re-exports exactly the six public modules and the
+# five exit-code constants. dialect_api and error are private `mod` (reached
+# through the `dialect`/`spec` re-exports), so they are not root exports.
+[[constraint]]
+type = "public_api_allowlist"
+allowed = ["command", "dialect", "help", "model", "spec", "sqlite", "EXIT_OK", "EXIT_ERROR", "EXIT_CONSTRAINT", "EXIT_USAGE", "EXIT_OPERATIONAL"]
+severity = "error"
