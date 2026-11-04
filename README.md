@@ -15,6 +15,24 @@ dbgraph verify   [--spec dbgraph.toml] [--db PATH] [--strict] [--json]
 - Database URLs come from environment variables only (`url_env`).
   `verify --db PATH` names the SQLite file on the command line instead.
 
+## Install
+
+From a checkout of this repository:
+
+```sh
+cargo install --path .
+```
+
+Or fetch a released binary through npm:
+
+```sh
+npm install "@<scope>/dbgraph"       # <scope> is the scope the release announces
+npx "@<scope>/dbgraph" verify --db <db-file>   # or run it without installing
+```
+
+See [npm/README.md](npm/README.md) for how the npm package fetches and
+verifies the binary.
+
 ## Verify
 
 `verify` compares a live database with the committed `graph.toml`. It
