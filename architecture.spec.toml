@@ -27,6 +27,13 @@
 [project]
 language = "rust"
 
+# The payload ships the npm downloader package under npm/ — node sources
+# with their own marker. Declared here so the language agreement check
+# reads the tree honestly instead of failing it.
+excluded_sources = [
+  { path = "npm", reason = "the npm downloader package — node sources with their own marker, verified by npm/test/run-npm-tests.sh" },
+]
+
 # cli — command dispatch plus the binary entrypoint. The binary unit
 # (`dbgraph-bin`) links the library as a unit-tier edge with no module
 # endpoints, so the unit claim here owns that edge's source; it points at the
